@@ -58,6 +58,19 @@ export default function App() {
   }, []);
 
   // 4. Trigger Bully Leader Election Step-by-Step
+  const getDefaultElectionInitiator = (failedLeaderId, nodeList) => {
+    const nextHigherActive = nodeList
+      .filter(n => n.status === 'active' && n.id > failedLeaderId)
+      .sort((a, b) => a.id - b.id);
+
+    if (nextHigherActive.length > 0) {
+      return nextHigherActive[0];
+    }
+
+    const lowestActive = nodeList.filter(n => n.status === 'active').sort((a, b) => a.id - b.id);
+    return lowestActive[0] || null;
+  };
+
   const triggerElection = (initiatorNodeId, currentNodes = nodes) => {
     if (isElectionRunning) return;
 
@@ -154,13 +167,9 @@ export default function App() {
       addLogEntry(`Database automatically unlocked from failed Node ${leaderId}.`, 'db');
     }
 
-    // Automatically trigger Bully Election from the lowest active node
-    const activeNodes = updatedNodes.filter(n => n.status === 'active');
-    if (activeNodes.length > 0) {
-      // Find lowest ID active node to detect failure and initiate election
-      const initiator = activeNodes.sort((a, b) => a.id - b.id)[0];
-      
-      // Delay election slightly so failure log displays first
+    // Automatically trigger Bully Election from the next logical active node
+    const initiator = getDefaultElectionInitiator(leaderId, updatedNodes);
+    if (initiator) {
       setTimeout(() => {
         triggerElection(initiator.id, updatedNodes);
       }, 800);
@@ -304,10 +313,9 @@ export default function App() {
     // Case 1: Node was leader and is now failed
     if (isFailing && id === leaderId) {
       setLeaderId(null);
-      // Automatically trigger Bully Election from lowest active node
-      const activeNodes = updatedNodes.filter(n => n.status === 'active');
-      if (activeNodes.length > 0) {
-        const initiator = activeNodes.sort((a, b) => a.id - b.id)[0];
+      // Automatically trigger Bully Election from the next logical active node
+      const initiator = getDefaultElectionInitiator(leaderId, updatedNodes);
+      if (initiator) {
         setTimeout(() => triggerElection(initiator.id, updatedNodes), 800);
       } else {
         addLogEntry('No active nodes left to hold election.', 'error');
