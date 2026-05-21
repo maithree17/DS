@@ -58,11 +58,13 @@ export default function App() {
   }, []);
 
   // 4. Trigger Bully Leader Election Step-by-Step
-  const triggerElection = (initiatorNodeId) => {
+  const triggerElection = (initiatorNodeId, currentNodes = nodes) => {
     if (isElectionRunning) return;
 
+    setLeaderId(null);
+
     // Filter nodes list for election generator
-    const electionSteps = generateElectionSteps(initiatorNodeId, nodes);
+    const electionSteps = generateElectionSteps(initiatorNodeId, currentNodes);
     if (electionSteps.length === 0) {
       addLogEntry('No active nodes to initiate election.', 'error');
       return;
@@ -123,6 +125,7 @@ export default function App() {
     });
 
     setNodes(updatedNodes);
+    setLeaderId(null);
     addLogEntry(`Leader Node ${leaderId} failed.`, 'error');
 
     // If the failed leader held the token, pass the token to the next active node
@@ -159,7 +162,7 @@ export default function App() {
       
       // Delay election slightly so failure log displays first
       setTimeout(() => {
-        triggerElection(initiator.id);
+        triggerElection(initiator.id, updatedNodes);
       }, 800);
     } else {
       setLeaderId(null);
@@ -171,6 +174,7 @@ export default function App() {
   const handleStartElection = () => {
     if (isElectionRunning) return;
 
+    setLeaderId(null);
     const activeNodes = nodes.filter(n => n.status === 'active');
     if (activeNodes.length === 0) {
       addLogEntry('All nodes have failed. Cannot start election.', 'error');
@@ -244,10 +248,17 @@ export default function App() {
   // 8. Release Shared Resource
   const handleReleaseResource = () => {
     if (dbStatus === 'AVAILABLE') return;
-    
-    const lockingNodeId = dbStatus.replace('LOCKED BY NODE ', '');
+
+    const lockingNodeIdText = dbStatus.replace('LOCKED BY NODE ', '').trim();
+    const lockingNodeId = Number(lockingNodeIdText);
     setDbStatus('AVAILABLE');
-    addLogEntry(`Node ${lockingNodeId} released the Shared Database. Status is AVAILABLE.`, 'db');
+
+    if (Number.isInteger(lockingNodeId) && lockingNodeId > 0) {
+      setNodes(prev => prev.map(n => n.id === lockingNodeId ? { ...n, dbRequest: false } : n));
+      addLogEntry(`Node ${lockingNodeId} released the Shared Database. Status is AVAILABLE.`, 'db');
+    } else {
+      addLogEntry('Shared Database released. Status is AVAILABLE.', 'db');
+    }
   };
 
   // 9. Reset Simulation
@@ -297,7 +308,7 @@ export default function App() {
       const activeNodes = updatedNodes.filter(n => n.status === 'active');
       if (activeNodes.length > 0) {
         const initiator = activeNodes.sort((a, b) => a.id - b.id)[0];
-        setTimeout(() => triggerElection(initiator.id), 800);
+        setTimeout(() => triggerElection(initiator.id, updatedNodes), 800);
       } else {
         addLogEntry('No active nodes left to hold election.', 'error');
       }
@@ -333,7 +344,7 @@ export default function App() {
       const activeLeader = updatedNodes.find(n => n.id === leaderId && n.status === 'active');
       if (!activeLeader) {
         addLogEntry(`Revived Node ${id} notices no active leader. Starting election...`, 'bully');
-        setTimeout(() => triggerElection(id), 800);
+        setTimeout(() => triggerElection(id, updatedNodes), 800);
       }
 
       // If token ring was empty (tokenPositionId was null), hand token to revived node
@@ -354,6 +365,7 @@ export default function App() {
     if (node.hasToken) {
       if (dbStatus === 'AVAILABLE') {
         setDbStatus(`LOCKED BY NODE ${id}`);
+        setNodes(prev => prev.map(n => n.id === id ? { ...n, dbRequest: false } : n));
         addLogEntry(`Node ${id} holds the token and locked the Shared Database.`, 'db');
       } else {
         addLogEntry(`Database is already locked. Node ${id} must wait.`, 'error');

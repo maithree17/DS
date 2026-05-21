@@ -107,11 +107,11 @@ export function generateElectionSteps(initiatorId, currentNodes) {
         );
       });
 
-      // The next initiator is the lowest active higher node to continue the election
-      const nextInitiator = activeHigherNodes[0];
+      // The highest active higher node continues the election and becomes the next candidate
+      const nextInitiator = activeHigherNodes[activeHigherNodes.length - 1];
       addStep(
         nodesState,
-        `Node ${nextInitiator.id} takes over the election process.`,
+        `Node ${nextInitiator.id} takes over the election process as the highest active candidate.`,
         [nextInitiator.id]
       );
       currentInitiatorId = nextInitiator.id;

@@ -110,17 +110,15 @@ export default function NodeCard({
         {status === 'active' && (
           <button
             onClick={() => onRequestDb(id)}
-            disabled={hasToken || dbRequest}
+            disabled={!hasToken && dbRequest}
             className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg text-xs font-semibold border transition-all duration-200 cursor-pointer
-              ${hasToken
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 cursor-not-allowed'
-                : dbRequest
-                  ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 animate-pulse'
-                  : 'bg-slate-800 border-slate-700/60 text-slate-300 hover:bg-slate-700'
+              ${(!hasToken && dbRequest)
+                ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 animate-pulse cursor-not-allowed'
+                : 'bg-slate-800 border-slate-700/60 text-slate-300 hover:bg-slate-700'
               }`}
           >
             <Database className="w-3.5 h-3.5" />
-            {hasToken ? 'Holding' : dbRequest ? 'Pending' : 'Request DB'}
+            {hasToken ? 'Lock DB' : dbRequest ? 'Pending' : 'Request DB'}
           </button>
         )}
       </div>
